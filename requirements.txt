@@ -1,0 +1,7 @@
+chromadb
+rank_bm25
+sentence-transformers
+anthropic
+ragas
+tiktoken
+python-dotenv
