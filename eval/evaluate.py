@@ -64,12 +64,6 @@ def run_pipeline_over_golden_set(golden_set: list[dict]) -> list[dict]:
     records = []
     for item in golden_set:
         result = answer_question(item["question"])
-        retrieved_ids = [c["metadata"]["source_url"] for c in result["chunks"]]
-        expected_url = next(
-            (c["metadata"]["source_url"] for c in result["chunks"]
-             if c["id"].startswith(item["expected_source_id"])),
-            None,
-        )
         records.append({
             "id": item["id"],
             "question": item["question"],
