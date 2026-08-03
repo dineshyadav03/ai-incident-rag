@@ -10,8 +10,9 @@ import os
 
 from dotenv import load_dotenv
 
-from src.config.prompts import SYSTEM_PROMPT_V1, build_user_prompt
-from src.retrieve import is_confident, vector_search
+from src.config.prompts import ACTIVE_SYSTEM_PROMPT, build_user_prompt
+from src.rerank import is_confident, rerank
+from src.retrieve import hybrid_search
 
 load_dotenv()
 
@@ -33,7 +34,7 @@ def _generate_ollama(user_prompt: str) -> str:
     response = _ollama_client.chat(
         model=OLLAMA_MODEL,
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT_V1},
+            {"role": "system", "content": ACTIVE_SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
     )
@@ -49,16 +50,18 @@ def _generate_anthropic(user_prompt: str) -> str:
     response = _anthropic_client.messages.create(
         model=ANTHROPIC_MODEL,
         max_tokens=2048,
-        system=SYSTEM_PROMPT_V1,
+        system=ACTIVE_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_prompt}],
     )
     return next((b.text for b in response.content if b.type == "text"), "")
 
 
 def answer_question(question: str, top_k: int = 5) -> dict:
-    """Retrieve chunks for the question and generate a cited answer. Refuses
-    when the top match isn't relevant enough (Phase 1 confidence check)."""
-    chunks = vector_search(question, top_k=top_k)
+    """Hybrid-retrieve (vector + BM25) and cross-encoder rerank down to
+    top_k, then generate a cited answer. Refuses when even the best
+    reranked match isn't relevant enough to trust."""
+    candidates = hybrid_search(question)
+    chunks = rerank(question, candidates, top_k=top_k)
 
     if not is_confident(chunks):
         return {"answer": REFUSAL_MESSAGE, "chunks": chunks, "refused": True}
