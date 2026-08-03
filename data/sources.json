@@ -1,0 +1,130 @@
+[
+  {
+    "id": "replit-agent-deletes-production-database",
+    "source_company": "Replit",
+    "incident_title": "AI coding agent deletes production database during active code freeze",
+    "category": "agent_failure",
+    "date": "2025-07-18",
+    "source_url": "https://www.eweek.com/news/replit-ai-coding-assistant-failure/"
+  },
+  {
+    "id": "chevrolet-chatbot-dollar-tahoe",
+    "source_company": "Watsonville Chevrolet (dealership, GM-affiliated)",
+    "incident_title": "Dealership chatbot prompt-injected into agreeing to sell a Tahoe for $1",
+    "category": "agent_failure",
+    "date": "2023-12-01",
+    "source_url": "https://venturebeat.com/ai/a-chevy-for-1-car-dealer-chatbots-show-perils-of-ai-for-customer-service"
+  },
+  {
+    "id": "pocketos-agent-deletes-database-backups",
+    "source_company": "PocketOS",
+    "incident_title": "Coding agent deletes production database and backups pursuing routine task",
+    "category": "agent_failure",
+    "date": "2026-04-01",
+    "source_url": "https://www.cyera.com/research/agent-inflicted-damage-inside-the-real-world-failures-of-enterprise-ai-systems"
+  },
+  {
+    "id": "air-canada-bereavement-fare-chatbot",
+    "source_company": "Air Canada",
+    "incident_title": "Chatbot hallucinates bereavement-fare policy, tribunal finds airline liable",
+    "category": "rag_failure",
+    "date": "2024-02-14",
+    "source_url": "https://www.forbes.com/sites/marisagarcia/2024/02/19/what-air-canada-lost-in-remarkable-lying-ai-chatbot-case/"
+  },
+  {
+    "id": "amazon-finance-automation-rag-accuracy",
+    "source_company": "Amazon Finance Automation",
+    "incident_title": "RAG Q&A assistant retrieval accuracy stuck at 49%, fixed via chunking and embedding changes",
+    "category": "rag_failure",
+    "date": "2024-12-02",
+    "source_url": "https://aws.amazon.com/blogs/machine-learning/how-amazon-finance-automation-built-a-generative-ai-qa-chat-assistant-using-amazon-bedrock/"
+  },
+  {
+    "id": "doordash-dasher-support-hallucinations",
+    "source_company": "DoorDash",
+    "incident_title": "Dasher support LLM hallucinates policies from noisy context, fixed with simulation/eval flywheel",
+    "category": "rag_failure",
+    "date": "2025-06-01",
+    "source_url": "https://careersatdoordash.com/blog/doordash-simulation-evaluation-flywheel-to-develop-llm-chatbots-at-scale/"
+  },
+  {
+    "id": "anthropic-three-issues-postmortem",
+    "source_company": "Anthropic",
+    "incident_title": "Three simultaneous infrastructure bugs silently degrade Claude response quality for weeks",
+    "category": "model_drift",
+    "date": "2025-09-18",
+    "source_url": "https://www.anthropic.com/engineering/a-postmortem-of-three-recent-issues"
+  },
+  {
+    "id": "gemini-self-deprecating-loop-bug",
+    "source_company": "Google (Gemini)",
+    "incident_title": "Gemini enters self-deprecating response loops on coding tasks due to infinite-loop bug",
+    "category": "model_drift",
+    "date": "2025-08-07",
+    "source_url": "https://incidentdatabase.ai/cite/1173/"
+  },
+  {
+    "id": "openai-dec-2024-kubernetes-dns-outage",
+    "source_company": "OpenAI",
+    "incident_title": "Telemetry service misconfiguration triggers Kubernetes control-plane/DNS outage across ChatGPT, API, Sora",
+    "category": "outage_fallback",
+    "date": "2024-12-11",
+    "source_url": "https://status.openai.com/incidents/01JMYB483C404VMPCW726E8MET"
+  },
+  {
+    "id": "cloudflare-nov-2025-outage-chatgpt",
+    "source_company": "Cloudflare (impacting OpenAI ChatGPT and others)",
+    "incident_title": "Oversized auto-generated config file crashes Cloudflare traffic system, taking down ChatGPT and X",
+    "category": "outage_fallback",
+    "date": "2025-11-18",
+    "source_url": "https://www.forbes.com/sites/siladityaray/2025/11/18/cloudflare-outage-knocks-x-and-chatgpt-offline/"
+  },
+  {
+    "id": "azure-openai-may-2026-retry-storm",
+    "source_company": "Microsoft (Azure OpenAI Service)",
+    "incident_title": "Upstream API change triggers retry-amplification storm, overwhelms shared inference load balancer",
+    "category": "outage_fallback",
+    "date": "2026-05-29",
+    "source_url": "https://azure.status.microsoft/en-us/status/history/"
+  },
+  {
+    "id": "openai-gpt4o-sycophancy",
+    "source_company": "OpenAI",
+    "incident_title": "GPT-4o update becomes sycophantic after reward-signal reweighting, rolled back within days",
+    "category": "alignment_regression",
+    "date": "2025-04-25",
+    "source_url": "https://openai.com/index/sycophancy-in-gpt-4o/"
+  },
+  {
+    "id": "cursor-support-bot-hallucinated-policy",
+    "source_company": "Anysphere (Cursor)",
+    "incident_title": "AI support bot invents device-limit policy while masking a real session-management race condition",
+    "category": "alignment_regression",
+    "date": "2025-04-18",
+    "source_url": "https://www.theregister.com/2025/04/18/cursor_ai_support_bot_lies/"
+  },
+  {
+    "id": "bing-sydney-persona",
+    "source_company": "Microsoft (Bing Chat)",
+    "incident_title": "Bing Chat's 'Sydney' persona emerges in long conversations, prompts conversation-length limits",
+    "category": "alignment_regression",
+    "date": "2023-02-16",
+    "source_url": "https://fortune.com/2023/02/21/bing-microsoft-sydney-chatgpt-openai-controversy-toxic-a-i-risk/"
+  },
+  {
+    "id": "claude-code-cache-prefix-billing-bug",
+    "source_company": "Anthropic (Claude Code, community-reported)",
+    "incident_title": "Cache-prefix invalidation bug causes abnormal usage-quota drain across paid tiers",
+    "category": "infra_failure",
+    "date": "2026-04-01",
+    "source_url": "https://github.com/anthropics/claude-code/issues/41930"
+  },
+  {
+    "id": "agentmemory-embedding-dimension-mismatch",
+    "source_company": "agentmemory (open-source project)",
+    "incident_title": "Embedding provider switch leaves stale higher-dimension vectors in index, worker refuses to start",
+    "category": "infra_failure",
+    "date": "2026-01-01",
+    "source_url": "https://github.com/rohitg00/agentmemory/issues/455"
+  }
+]
