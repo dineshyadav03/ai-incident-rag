@@ -10,7 +10,7 @@ I built a RAG system over real AI production postmortems — because I couldn't 
 
 **Why it's not just a chatbot wrapper:** a general LLM will recall famous incidents from training data but confidently blur details on less-famous ones, can't point to the source paragraph a claim came from, and knows nothing published after its cutoff. This is the textbook case for RAG — fragmented primary sources, no compiled reference, correctness that depends on exact grounding rather than paraphrase.
 
-Built with phased discipline: core pipeline → hybrid retrieval + reranking → formal evaluation (RAGAS: faithfulness, context precision/recall, answer relevancy) against a 24-question golden set. Zero API budget for this build, so it runs entirely on a local Ollama model by default — with a one-line config swap to Claude API when budget allows.
+Built with phased discipline: core pipeline → hybrid retrieval + reranking → formal evaluation (RAGAS: faithfulness, context precision/recall, answer relevancy) against a 24-question golden set. Runs entirely on free, local resources — a local Ollama model for both generation and evaluation, zero paid API calls anywhere in the stack.
 
 Repo: [github.com/dineshyadav03/ai-incident-rag](https://github.com/dineshyadav03/ai-incident-rag)
 
@@ -28,4 +28,4 @@ Repo: [github.com/dineshyadav03/ai-incident-rag](https://github.com/dineshyadav0
 
 **What I'd tell an interviewer about the honest parts.** The RAGAS evaluation currently runs on a local 3B-parameter judge model, because there was zero API budget for this build — and that shows up directly in the numbers: `faithfulness` and `context_recall` score reliably, while `answer_relevancy` and `context_precision` frequently fail to parse because the small model can't reliably produce the strict JSON those metrics require internally. That's a documented, known limitation, not a hidden one — and it's a genuinely useful thing to be able to explain: I know exactly which of my four eval metrics I can trust today and why, and what upgrading the judge model would fix.
 
-**What's next.** The corpus is designed to grow — 16 sources at v1, target range was 15-25 — and generation is provider-agnostic by design, so swapping the local Ollama judge/generator for Claude Sonnet 5 is a one-line config change once budget allows, not a rebuild.
+**What's next.** The corpus is designed to grow — 16 sources at v1, target range was 15-25 — and the eval is the clearest lever for improvement: a stronger local judge model would resolve the JSON-parsing failures on two of the four RAGAS metrics.

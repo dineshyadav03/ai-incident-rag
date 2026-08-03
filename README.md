@@ -20,7 +20,7 @@ Query:     question -> embed -> vector search + BM25 -> merge -> cross-encoder r
            -> refuse if below relevance threshold -> else build cited prompt -> LLM -> answer + citations
 ```
 
-Generation is provider-agnostic (`GENERATION_PROVIDER` in `.env`): defaults to a local Ollama model (`llama3.2:3b`, free, no API key), with Claude Sonnet 5 as a one-line config swap (`GENERATION_PROVIDER=anthropic`) for when API budget is available — the production-intended path per this project's design.
+Generation runs entirely on a local Ollama model (`llama3.2:3b`) — free, no API key, no external calls.
 
 ## Repository structure
 
@@ -34,7 +34,7 @@ src/
   embed.py               create + populate ChromaDB collection
   retrieve.py           hybrid vector + BM25 search
   rerank.py              cross-encoder reranking + citation-enforcement confidence check
-  generate.py            prompt construction + LLM call (local Ollama or Claude API)
+  generate.py            prompt construction + local Ollama LLM call
   config/prompts.py      versioned system prompts
 eval/
   golden_set.json        24 manually verified Q&A pairs across all 6 categories
@@ -53,9 +53,9 @@ main.py                  CLI entry point
 
 Documented honestly, as the project's own eval plan requires:
 
-- **RAGAS judge is a local 3B model, not GPT-4/Claude.** With zero API budget for development, both generation *and* the RAGAS judge run on `llama3.2:3b` via Ollama. `faithfulness` and `context_recall` score reliably. `answer_relevancy` and `context_precision` frequently fail to parse — the small model doesn't reliably produce the strict JSON these metrics require internally, so those scores should be read as directional, not as a strict production benchmark. This is a limitation of the judge, not necessarily of the underlying RAG system.
+- **RAGAS judge is a local 3B model.** This project runs entirely on free, local resources — both generation *and* the RAGAS judge run on `llama3.2:3b` via Ollama, no paid API involved anywhere. `faithfulness` and `context_recall` score reliably. `answer_relevancy` and `context_precision` frequently fail to parse — the small model doesn't reliably produce the strict JSON these metrics require internally, so those scores should be read as directional, not as a strict production benchmark. This is a limitation of the judge, not necessarily of the underlying RAG system.
 - **Faithfulness alone is not the full picture.** Per the eval plan: faithfulness can look strong while retrieval quietly misses information, so it's tracked alongside context precision/recall, not in isolation — which is part of why this project measured all four metrics rather than just faithfulness.
-- **Citation title fidelity.** The local generation model sometimes paraphrases the `incident_title` field in its citation instead of reproducing it verbatim (e.g. "Replit's Outage" instead of the exact stored title), even though the exact string is present in the prompt context. Company name and source URL have been reliably exact in testing. A larger model (Claude Sonnet 5) is expected to reproduce citation fields verbatim more reliably.
+- **Citation title fidelity.** The local generation model sometimes paraphrases the `incident_title` field in its citation instead of reproducing it verbatim (e.g. "Replit's Outage" instead of the exact stored title), even though the exact string is present in the prompt context. Company name and source URL have been reliably exact in testing. A larger local model would likely reproduce citation fields verbatim more reliably, at the cost of slower CPU inference.
 - **Retrieval, independent of the LLM judge, checked out cleanly**: see `eval/results.json` for the retrieval-hit-rate figure — whether the correct source was actually retrieved for each golden question, measured directly rather than through an LLM judge.
 - **Corpus size.** 16 sources at v1 (target range was 15-25); `infra_failure` and `model_drift` are the thinnest categories (2 sources each). This is a living project by design — meant to grow.
 - **`ragas` packaging bug.** The latest `ragas` (0.4.3) unconditionally imports a `langchain_community` submodule that's been removed from current `langchain-community`, breaking `import ragas` entirely on a fresh install. `requirements.txt` pins `ragas==0.3.9` and `langchain-community==0.3.31` to a known-working combination.
@@ -68,18 +68,11 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Default setup uses a local Ollama model for generation — no API key needed:
+Generation runs on a local Ollama model — no API key needed:
 
 ```bash
 # install Ollama (https://ollama.com), then:
 ollama pull llama3.2:3b
-```
-
-To use Claude API generation instead (once budget is available), set in `.env`:
-
-```
-GENERATION_PROVIDER=anthropic
-ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 ## Usage

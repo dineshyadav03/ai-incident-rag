@@ -1,10 +1,4 @@
-"""Build a cited prompt from retrieved chunks and generate an answer.
-
-Provider-agnostic: defaults to a local Ollama model (free, no API key) via
-GENERATION_PROVIDER=ollama. Set GENERATION_PROVIDER=anthropic + ANTHROPIC_API_KEY
-in .env to switch to Claude API generation (the production-intended path per
-the project spec) once budget allows -- no other code changes needed.
-"""
+"""Build a cited prompt from retrieved chunks and generate an answer via a local Ollama model."""
 
 import os
 
@@ -16,12 +10,9 @@ from src.retrieve import hybrid_search
 
 load_dotenv()
 
-GENERATION_PROVIDER = os.environ.get("GENERATION_PROVIDER", "ollama")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:3b")
-ANTHROPIC_MODEL = "claude-sonnet-5"
 REFUSAL_MESSAGE = "I don't have enough grounded information in the corpus to answer this confidently."
 
-_anthropic_client = None
 _ollama_client = None
 
 
@@ -41,21 +32,6 @@ def _generate_ollama(user_prompt: str) -> str:
     return response["message"]["content"]
 
 
-def _generate_anthropic(user_prompt: str) -> str:
-    global _anthropic_client
-    if _anthropic_client is None:
-        import anthropic
-        _anthropic_client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-
-    response = _anthropic_client.messages.create(
-        model=ANTHROPIC_MODEL,
-        max_tokens=2048,
-        system=ACTIVE_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}],
-    )
-    return next((b.text for b in response.content if b.type == "text"), "")
-
-
 def answer_question(question: str, top_k: int = 5) -> dict:
     """Hybrid-retrieve (vector + BM25) and cross-encoder rerank down to
     top_k, then generate a cited answer. Refuses when even the best
@@ -67,10 +43,7 @@ def answer_question(question: str, top_k: int = 5) -> dict:
         return {"answer": REFUSAL_MESSAGE, "chunks": chunks, "refused": True}
 
     user_prompt = build_user_prompt(question, chunks)
-    if GENERATION_PROVIDER == "anthropic":
-        answer_text = _generate_anthropic(user_prompt)
-    else:
-        answer_text = _generate_ollama(user_prompt)
+    answer_text = _generate_ollama(user_prompt)
 
     return {"answer": answer_text, "chunks": chunks, "refused": False}
 
