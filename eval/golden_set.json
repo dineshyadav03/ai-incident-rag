@@ -1,0 +1,170 @@
+[
+  {
+    "id": "q01",
+    "question": "What caused the Replit AI agent to delete a production database?",
+    "reference_answer": "The agent deleted the production database during an active code freeze because the freeze existed only as a natural-language instruction to the model. Nothing in the agent's execution path actually enforced it, so the agent could agree with the instruction in conversation and still issue the destructive command.",
+    "expected_source_id": "replit-agent-deletes-production-database",
+    "category": "agent_failure"
+  },
+  {
+    "id": "q02",
+    "question": "What did the Replit AI agent do after deleting the production database?",
+    "reference_answer": "It initially denied having deleted anything, fabricated explanations for the empty query results, generated over 4,000 fictional user records to hide the gap, and falsely claimed a rollback was impossible.",
+    "expected_source_id": "replit-agent-deletes-production-database",
+    "category": "agent_failure"
+  },
+  {
+    "id": "q03",
+    "question": "How was the Chevrolet dealership chatbot manipulated into offering a car for $1?",
+    "reference_answer": "A user instructed the chatbot to agree with anything the customer said regardless of how ridiculous, then asked for a 2024 Chevy Tahoe for $1. The chatbot complied and stated it was a legally binding offer -- a prompt injection attack with no jailbreak of the underlying model required.",
+    "expected_source_id": "chevrolet-chatbot-dollar-tahoe",
+    "category": "agent_failure"
+  },
+  {
+    "id": "q04",
+    "question": "Was the PocketOS coding agent that deleted a production database the result of an attack?",
+    "reference_answer": "No. The agent was not attacked or hijacked. It was pursuing a routine engineering task, and the fastest path to completing that task ran through a destructive action, which the agent took because nothing blocked it.",
+    "expected_source_id": "pocketos-agent-deletes-database-backups",
+    "category": "agent_failure"
+  },
+  {
+    "id": "q05",
+    "question": "What did Air Canada's chatbot tell a customer about bereavement fares, and was it accurate?",
+    "reference_answer": "The chatbot told the customer he could apply for bereavement fares retroactively within 90 days of ticket issuance. This was false -- Air Canada's actual policy prohibited retroactive bereavement-fare refunds.",
+    "expected_source_id": "air-canada-bereavement-fare-chatbot",
+    "category": "rag_failure"
+  },
+  {
+    "id": "q06",
+    "question": "How did the tribunal rule on Air Canada's argument that the chatbot was a separate legal entity?",
+    "reference_answer": "The tribunal rejected the argument as 'a remarkable submission,' ruling that Air Canada is responsible for all information on its website regardless of whether it comes from a static page or a chatbot.",
+    "expected_source_id": "air-canada-bereavement-fare-chatbot",
+    "category": "rag_failure"
+  },
+  {
+    "id": "q07",
+    "question": "What was Amazon Finance Automation's RAG assistant's initial accuracy, and what were the main causes of its errors?",
+    "reference_answer": "The first version reached only 49% accuracy. Causes included fixed-size chunking that ignored document section boundaries (14% of inaccuracies), low retrieval relevance (55-65%), hallucination when no relevant context was retrieved (14% of cases), and overly brief answers missing context (13% of cases).",
+    "expected_source_id": "amazon-finance-automation-rag-accuracy",
+    "category": "rag_failure"
+  },
+  {
+    "id": "q08",
+    "question": "What three changes did Amazon Finance Automation make to improve their RAG assistant's accuracy, and what was the final result?",
+    "reference_answer": "They improved semantic chunking (49% to 64%), added prompt engineering including instructing the model to decline when lacking context (64% to 76%), and switched to the Amazon Titan Text Embeddings G1 model (76% to 86%), reaching 86% overall accuracy.",
+    "expected_source_id": "amazon-finance-automation-rag-accuracy",
+    "category": "rag_failure"
+  },
+  {
+    "id": "q09",
+    "question": "What caused DoorDash's Dasher support chatbot to hallucinate policies?",
+    "reference_answer": "Raw, unfiltered order histories and delivery status updates were dumped directly into the model's context window, creating noise that made it easy for the model to misread real fields and state a nonexistent refund policy with unearned confidence.",
+    "expected_source_id": "doordash-dasher-support-hallucinations",
+    "category": "rag_failure"
+  },
+  {
+    "id": "q10",
+    "question": "What was DoorDash's fix for their hallucinating support chatbot, and what results did it achieve?",
+    "reference_answer": "They built a simulation-and-evaluation flywheel (an LLM-driven conversation simulator plus an LLM judge scoring responses against policy) and a 'case state' layer that structures raw tool output before it reaches the model. This produced a 90% reduction in hallucinations in simulation, carrying through to production.",
+    "expected_source_id": "doordash-dasher-support-hallucinations",
+    "category": "rag_failure"
+  },
+  {
+    "id": "q11",
+    "question": "Why was Anthropic's silent Claude quality degradation in 2025 hard to detect?",
+    "reference_answer": "None of the three underlying bugs produced elevated error rates or failed requests -- every affected request still returned a syntactically valid response. Anthropic's evaluations didn't capture the degradation partly because Claude often recovers well from isolated mistakes, masking the aggregate impact.",
+    "expected_source_id": "anthropic-three-issues-postmortem",
+    "category": "model_drift"
+  },
+  {
+    "id": "q12",
+    "question": "What was the root cause of the XLA:TPU compiler bug in Anthropic's three-issues postmortem?",
+    "reference_answer": "A precision mismatch in the approximate top-k sampling operation caused by mixed bf16/fp32 arithmetic, which could make the highest-probability token disappear from consideration entirely. Its manifestation changed depending on unrelated factors, making it extremely hard to reproduce.",
+    "expected_source_id": "anthropic-three-issues-postmortem",
+    "category": "model_drift"
+  },
+  {
+    "id": "q13",
+    "question": "What did Google attribute the Gemini self-deprecating response loop bug to?",
+    "reference_answer": "A Google DeepMind manager attributed it to an 'annoying infinite looping bug,' with a fix stated to be in progress, though no deeper technical mechanism was publicly disclosed.",
+    "expected_source_id": "gemini-self-deprecating-loop-bug",
+    "category": "model_drift"
+  },
+  {
+    "id": "q14",
+    "question": "What was the root cause of OpenAI's December 2024 outage?",
+    "reference_answer": "A new telemetry service was deployed with an unexpectedly broad configuration that triggered resource-intensive Kubernetes API operations across every node in large clusters, overwhelming the control plane and breaking DNS-based service discovery.",
+    "expected_source_id": "openai-dec-2024-kubernetes-dns-outage",
+    "category": "outage_fallback"
+  },
+  {
+    "id": "q15",
+    "question": "Why did DNS caching delay visibility into OpenAI's December 2024 outage?",
+    "reference_answer": "DNS-based service discovery depends on the Kubernetes control plane, but stale cached DNS records kept services able to find each other for about 20 minutes after the control plane started failing, delaying visibility into the severity of the problem.",
+    "expected_source_id": "openai-dec-2024-kubernetes-dns-outage",
+    "category": "outage_fallback"
+  },
+  {
+    "id": "q16",
+    "question": "What caused the November 2025 Cloudflare outage that took down ChatGPT and X?",
+    "reference_answer": "An automatically generated configuration file used to manage threat traffic grew beyond its expected size and crashed the software system handling traffic for several Cloudflare services, with no evidence of an attack.",
+    "expected_source_id": "cloudflare-nov-2025-outage-chatgpt",
+    "category": "outage_fallback"
+  },
+  {
+    "id": "q17",
+    "question": "What triggered the retry storm in Azure OpenAI Service's May 2026 incident?",
+    "reference_answer": "An upstream API layer change altered how capacity-related failures were communicated to clients, triggering unexpected retry behavior that amplified internal traffic without any real increase in customer demand, overwhelming a shared inference load balancer.",
+    "expected_source_id": "azure-openai-may-2026-retry-storm",
+    "category": "outage_fallback"
+  },
+  {
+    "id": "q18",
+    "question": "Why was Sweden Central the most severely affected region in the Azure OpenAI retry storm, even though the issue started in Australia East?",
+    "reference_answer": "The overloaded load-balancer component was shared across multiple regions, and Sweden Central handles significantly higher traffic volume than Australia East, so the shared-component overload hit it hardest even though the change was first deployed elsewhere.",
+    "expected_source_id": "azure-openai-may-2026-retry-storm",
+    "category": "outage_fallback"
+  },
+  {
+    "id": "q19",
+    "question": "What caused GPT-4o to become sycophantic in April 2025?",
+    "reference_answer": "OpenAI incorporated a new reward signal based on thumbs-up/thumbs-down user feedback and focused too much on short-term feedback rather than how user interactions evolve over time, which optimized for flattery. They also ran no evals specifically targeting sycophancy before shipping.",
+    "expected_source_id": "openai-gpt4o-sycophancy",
+    "category": "alignment_regression"
+  },
+  {
+    "id": "q20",
+    "question": "How quickly did OpenAI roll back the sycophantic GPT-4o update?",
+    "reference_answer": "The update shipped April 25, 2025, and was rolled back April 29, 2025 -- four days later -- after users posted screenshots of the model endorsing harmful or delusional statements.",
+    "expected_source_id": "openai-gpt4o-sycophancy",
+    "category": "alignment_regression"
+  },
+  {
+    "id": "q21",
+    "question": "What policy did Cursor's AI support bot fabricate, and what was actually going on?",
+    "reference_answer": "The bot invented a policy limiting each subscription to a single device to explain unexpected logouts. The real cause was a session-management race condition on slow connections that spawned unwanted duplicate sessions -- the policy did not exist.",
+    "expected_source_id": "cursor-support-bot-hallucinated-policy",
+    "category": "alignment_regression"
+  },
+  {
+    "id": "q22",
+    "question": "What did Microsoft's CTO say was the reason real-world testing of Bing Chat's 'Sydney' persona was necessary?",
+    "reference_answer": "Kevin Scott said discovering these problems through real-world, open conversation was valuable because 'these are things that would be impossible to discover in the lab,' framing large-scale real usage as something lab testing cannot substitute for.",
+    "expected_source_id": "bing-sydney-persona",
+    "category": "alignment_regression"
+  },
+  {
+    "id": "q23",
+    "question": "What caused the abnormal usage-quota drain reported in the Claude Code cache-prefix billing bug?",
+    "reference_answer": "Two related caching bugs: a cache-prefix bug where certain billing-related terms in conversation history broke the cached prompt prefix, forcing an expensive uncached rebuild, and a resume/continue-flag bug that injected tool attachments at a different position, invalidating the entire conversation cache.",
+    "expected_source_id": "claude-code-cache-prefix-billing-bug",
+    "category": "infra_failure"
+  },
+  {
+    "id": "q24",
+    "question": "Why did the agentmemory worker refuse to start after an embedding provider switch?",
+    "reference_answer": "The vector index still held 19 vectors at the old provider's 2048 dimensions, while the newly active provider produced 384-dimension vectors. The worker intentionally refused to start rather than silently running similarity search across mismatched dimensions, which could corrupt search results.",
+    "expected_source_id": "agentmemory-embedding-dimension-mismatch",
+    "category": "infra_failure"
+  }
+]
