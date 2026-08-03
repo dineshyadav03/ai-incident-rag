@@ -11,12 +11,21 @@ import statistics
 from pathlib import Path
 
 from langchain_community.chat_models import ChatOllama
+from langchain_community.embeddings import HuggingFaceEmbeddings as LangchainHuggingFaceEmbeddings
 from ragas import EvaluationDataset, SingleTurnSample, evaluate
-from ragas.embeddings import HuggingFaceEmbeddings
+from ragas.embeddings import LangchainEmbeddingsWrapper
 from ragas.llms import LangchainLLMWrapper
 from ragas.metrics import answer_relevancy, context_precision, context_recall, faithfulness
+from ragas.run_config import RunConfig
 
 from src.generate import answer_question
+
+# A single local Ollama instance on CPU serves one generation at a time.
+# RAGAS's default (max_workers=16, timeout=180s) fires far more concurrent
+# judge calls than that can keep up with, so almost everything times out
+# queued behind the model rather than actually failing to answer. Run
+# serially with a generous per-call timeout instead.
+LOCAL_JUDGE_RUN_CONFIG = RunConfig(timeout=600, max_workers=1, max_retries=2)
 
 EVAL_DIR = Path(__file__).resolve().parent
 GOLDEN_SET_PATH = EVAL_DIR / "golden_set.json"
@@ -71,7 +80,7 @@ def score_with_ragas(records: list[dict]) -> list[dict]:
 
     chat = ChatOllama(model=JUDGE_MODEL, temperature=0)
     llm = LangchainLLMWrapper(chat)
-    embeddings = HuggingFaceEmbeddings(model=EMBEDDING_MODEL)
+    embeddings = LangchainEmbeddingsWrapper(LangchainHuggingFaceEmbeddings(model_name=EMBEDDING_MODEL))
 
     samples = [
         SingleTurnSample(
@@ -90,6 +99,7 @@ def score_with_ragas(records: list[dict]) -> list[dict]:
         llm=llm,
         embeddings=embeddings,
         raise_exceptions=False,
+        run_config=LOCAL_JUDGE_RUN_CONFIG,
     )
     scores_df = result.to_pandas()
 
