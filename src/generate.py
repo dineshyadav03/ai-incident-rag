@@ -1,8 +1,13 @@
-"""Build a cited prompt from retrieved chunks and generate an answer via the Claude API."""
+"""Build a cited prompt from retrieved chunks and generate an answer.
+
+Provider-agnostic: defaults to a local Ollama model (free, no API key) via
+GENERATION_PROVIDER=ollama. Set GENERATION_PROVIDER=anthropic + ANTHROPIC_API_KEY
+in .env to switch to Claude API generation (the production-intended path per
+the project spec) once budget allows -- no other code changes needed.
+"""
 
 import os
 
-import anthropic
 from dotenv import load_dotenv
 
 from src.config.prompts import SYSTEM_PROMPT_V1, build_user_prompt
@@ -10,17 +15,44 @@ from src.retrieve import is_confident, vector_search
 
 load_dotenv()
 
-MODEL = "claude-sonnet-5"
+GENERATION_PROVIDER = os.environ.get("GENERATION_PROVIDER", "ollama")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:3b")
+ANTHROPIC_MODEL = "claude-sonnet-5"
 REFUSAL_MESSAGE = "I don't have enough grounded information in the corpus to answer this confidently."
 
-_client = None
+_anthropic_client = None
+_ollama_client = None
 
 
-def get_client() -> anthropic.Anthropic:
-    global _client
-    if _client is None:
-        _client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    return _client
+def _generate_ollama(user_prompt: str) -> str:
+    global _ollama_client
+    if _ollama_client is None:
+        import ollama
+        _ollama_client = ollama.Client()
+
+    response = _ollama_client.chat(
+        model=OLLAMA_MODEL,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT_V1},
+            {"role": "user", "content": user_prompt},
+        ],
+    )
+    return response["message"]["content"]
+
+
+def _generate_anthropic(user_prompt: str) -> str:
+    global _anthropic_client
+    if _anthropic_client is None:
+        import anthropic
+        _anthropic_client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+
+    response = _anthropic_client.messages.create(
+        model=ANTHROPIC_MODEL,
+        max_tokens=2048,
+        system=SYSTEM_PROMPT_V1,
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+    return next((b.text for b in response.content if b.type == "text"), "")
 
 
 def answer_question(question: str, top_k: int = 5) -> dict:
@@ -31,14 +63,11 @@ def answer_question(question: str, top_k: int = 5) -> dict:
     if not is_confident(chunks):
         return {"answer": REFUSAL_MESSAGE, "chunks": chunks, "refused": True}
 
-    client = get_client()
-    response = client.messages.create(
-        model=MODEL,
-        max_tokens=2048,
-        system=SYSTEM_PROMPT_V1,
-        messages=[{"role": "user", "content": build_user_prompt(question, chunks)}],
-    )
-    answer_text = next((b.text for b in response.content if b.type == "text"), "")
+    user_prompt = build_user_prompt(question, chunks)
+    if GENERATION_PROVIDER == "anthropic":
+        answer_text = _generate_anthropic(user_prompt)
+    else:
+        answer_text = _generate_ollama(user_prompt)
 
     return {"answer": answer_text, "chunks": chunks, "refused": False}
 
