@@ -7,6 +7,7 @@ how judge-model size affects these scores.
 """
 
 import json
+import os
 import statistics
 from pathlib import Path
 
@@ -20,12 +21,16 @@ from ragas.run_config import RunConfig
 
 from src.generate import answer_question
 
-# A single local Ollama instance on CPU serves one generation at a time.
-# RAGAS's default (max_workers=16, timeout=180s) fires far more concurrent
-# judge calls than that can keep up with, so almost everything times out
-# queued behind the model rather than actually failing to answer. Run
-# serially with a generous per-call timeout instead.
-LOCAL_JUDGE_RUN_CONFIG = RunConfig(timeout=600, max_workers=1, max_retries=2)
+# A single Ollama instance serving one CPU-bound request at a time can't keep
+# up with RAGAS's default (max_workers=16, timeout=180s) -- almost everything
+# times out queued behind the model instead of actually failing to answer.
+# Default to serial with a generous timeout; override on a less-constrained
+# machine (more RAM, a GPU) via env vars.
+LOCAL_JUDGE_RUN_CONFIG = RunConfig(
+    timeout=int(os.environ.get("RAGAS_TIMEOUT", "600")),
+    max_workers=int(os.environ.get("RAGAS_MAX_WORKERS", "1")),
+    max_retries=2,
+)
 
 EVAL_DIR = Path(__file__).resolve().parent
 GOLDEN_SET_PATH = EVAL_DIR / "golden_set.json"
@@ -37,12 +42,14 @@ EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 # RAGAS scoring (faithfulness/answer_relevancy/context_precision/context_recall)
 # needs ~10 sequential LLM calls per question. On a local CPU model under real
 # system memory pressure, a full 24-question run degraded from ~60s/job to
-# 800+s/job and projected 9+ hours -- not tractable for this project's time
-# budget. Retrieval quality is checked on the FULL golden set regardless
+# 800+s/job and projected 9+ hours -- not tractable on constrained local
+# hardware. Retrieval quality is checked on the FULL golden set regardless
 # (retrieval_hit_rate below, no LLM judge needed, cheap and fast). RAGAS
-# scoring runs on this representative subset instead: one or two questions
-# per category, spanning all 6.
-RAGAS_SAMPLE_IDS = {"q01", "q05", "q07", "q11", "q14", "q17", "q19", "q23", "q24"}
+# scoring defaults to a representative subset -- one or two questions per
+# category, spanning all 6 -- but set RAGAS_FULL_EVAL=1 (e.g. on a
+# less-constrained machine or free cloud notebook) to score the full set.
+_SAMPLE_IDS = {"q01", "q05", "q07", "q11", "q14", "q17", "q19", "q23", "q24"}
+RAGAS_SAMPLE_IDS = None if os.environ.get("RAGAS_FULL_EVAL") == "1" else _SAMPLE_IDS
 
 
 def load_golden_set() -> list[dict]:
@@ -85,7 +92,10 @@ def score_with_ragas(records: list[dict]) -> list[dict]:
     (see RAGAS_SAMPLE_IDS). Refused records are scored as-is by the
     pipeline's own refusal behavior, not by RAGAS (there's no generated
     answer to judge)."""
-    scorable = [r for r in records if not r["refused"] and r["id"] in RAGAS_SAMPLE_IDS]
+    scorable = [
+        r for r in records
+        if not r["refused"] and (RAGAS_SAMPLE_IDS is None or r["id"] in RAGAS_SAMPLE_IDS)
+    ]
     if not scorable:
         return records
 
@@ -144,7 +154,7 @@ def summarize(records: list[dict]) -> dict:
         "n_questions": len(records),
         "retrieval_hit_rate": retrieval_hit_rate,
         "refusal_rate_on_in_corpus_questions": refusal_rate,
-        "n_ragas_sampled": len(RAGAS_SAMPLE_IDS),
+        "n_ragas_sampled": len(records) if RAGAS_SAMPLE_IDS is None else len(RAGAS_SAMPLE_IDS),
         "ragas_sample_note": "RAGAS-scored on a representative subset (one/two per category), not the full set -- see comment in evaluate.py. retrieval_hit_rate and refusal_rate above ARE measured on the full set.",
     }
     for metric in metric_names:
