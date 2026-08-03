@@ -34,6 +34,16 @@ RESULTS_PATH = EVAL_DIR / "results.json"
 JUDGE_MODEL = "llama3.2:3b"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
+# RAGAS scoring (faithfulness/answer_relevancy/context_precision/context_recall)
+# needs ~10 sequential LLM calls per question. On a local CPU model under real
+# system memory pressure, a full 24-question run degraded from ~60s/job to
+# 800+s/job and projected 9+ hours -- not tractable for this project's time
+# budget. Retrieval quality is checked on the FULL golden set regardless
+# (retrieval_hit_rate below, no LLM judge needed, cheap and fast). RAGAS
+# scoring runs on this representative subset instead: one or two questions
+# per category, spanning all 6.
+RAGAS_SAMPLE_IDS = {"q01", "q05", "q07", "q11", "q14", "q17", "q19", "q23", "q24"}
+
 
 def load_golden_set() -> list[dict]:
     with open(GOLDEN_SET_PATH, "r", encoding="utf-8") as f:
@@ -71,10 +81,11 @@ def run_pipeline_over_golden_set(golden_set: list[dict]) -> list[dict]:
 
 
 def score_with_ragas(records: list[dict]) -> list[dict]:
-    """Score the non-refused records with RAGAS. Refused records are scored
-    as-is by the pipeline's own refusal behavior, not by RAGAS (there's no
-    generated answer to judge)."""
-    scorable = [r for r in records if not r["refused"]]
+    """Score a representative subset of the non-refused records with RAGAS
+    (see RAGAS_SAMPLE_IDS). Refused records are scored as-is by the
+    pipeline's own refusal behavior, not by RAGAS (there's no generated
+    answer to judge)."""
+    scorable = [r for r in records if not r["refused"] and r["id"] in RAGAS_SAMPLE_IDS]
     if not scorable:
         return records
 
@@ -133,6 +144,8 @@ def summarize(records: list[dict]) -> dict:
         "n_questions": len(records),
         "retrieval_hit_rate": retrieval_hit_rate,
         "refusal_rate_on_in_corpus_questions": refusal_rate,
+        "n_ragas_sampled": len(RAGAS_SAMPLE_IDS),
+        "ragas_sample_note": "RAGAS-scored on a representative subset (one/two per category), not the full set -- see comment in evaluate.py. retrieval_hit_rate and refusal_rate above ARE measured on the full set.",
     }
     for metric in metric_names:
         values = [r["ragas"][metric] for r in records if r.get("ragas") and r["ragas"][metric] is not None]
