@@ -155,7 +155,13 @@ def summarize(records: list[dict]) -> dict:
         "retrieval_hit_rate": retrieval_hit_rate,
         "refusal_rate_on_in_corpus_questions": refusal_rate,
         "n_ragas_sampled": len(records) if RAGAS_SAMPLE_IDS is None else len(RAGAS_SAMPLE_IDS),
-        "ragas_sample_note": "RAGAS-scored on a representative subset (one/two per category), not the full set -- see comment in evaluate.py. retrieval_hit_rate and refusal_rate above ARE measured on the full set.",
+        "ragas_sample_note": (
+            "RAGAS-scored on the FULL golden set (RAGAS_FULL_EVAL=1)."
+            if RAGAS_SAMPLE_IDS is None else
+            "RAGAS-scored on a representative subset (one/two per category), not the full set -- "
+            "set RAGAS_FULL_EVAL=1 to score everything. retrieval_hit_rate and refusal_rate above "
+            "ARE measured on the full set regardless."
+        ),
     }
     for metric in metric_names:
         values = [r["ragas"][metric] for r in records if r.get("ragas") and r["ragas"][metric] is not None]

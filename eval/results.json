@@ -1,0 +1,30 @@
+{
+  "summary": {
+    "n_questions": 24,
+    "retrieval_hit_rate": 1.0,
+    "refusal_rate_on_in_corpus_questions": 0.0,
+    "n_ragas_sampled": 24,
+    "ragas_sample_note": "Full golden set scored (RAGAS_FULL_EVAL=1), run on a free Google Colab T4 GPU instance -- local CPU hardware could not complete a full run in reasonable time (see README known limitations).",
+    "faithfulness": {
+      "mean": 0.876984126984127,
+      "n_scored": 6,
+      "n_parse_failed": 18
+    },
+    "answer_relevancy": {
+      "mean": 0.7865936780807187,
+      "n_scored": 15,
+      "n_parse_failed": 9
+    },
+    "context_precision": {
+      "mean": 0.9893115941812093,
+      "n_scored": 23,
+      "n_parse_failed": 1
+    },
+    "context_recall": {
+      "mean": 0.6611272499430394,
+      "n_scored": 22,
+      "n_parse_failed": 2
+    }
+  },
+  "note": "Per-record detail (generated answers, contexts, individual scores) is available by re-running `RAGAS_FULL_EVAL=1 python -m eval.evaluate` -- this file captures the summary from the full run executed on Google Colab on 2026-08-03."
+}

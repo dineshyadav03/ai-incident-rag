@@ -6,7 +6,7 @@ Ask a question about how AI systems fail in production — silent RAG degradatio
 
 ## Status
 
-Phases 1 and 2 complete and verified end-to-end. Phase 3 (golden eval + RAGAS scoring) in progress.
+All three phases complete and verified end-to-end, including a full 24-question RAGAS evaluation run.
 
 ## Why this exists
 
@@ -47,16 +47,29 @@ main.py                  CLI entry point
 
 1. **Core pipeline** ✅ — ingest, chunk, embed, vector-only retrieval, cited generation
 2. **Production-quality retrieval** ✅ — hybrid BM25 + vector search, cross-encoder reranking, reranker-score-based refusal, versioned prompts
-3. **Evaluation and rigor** 🚧 — 24-question golden set (target was 20-30), RAGAS scoring (faithfulness, context precision/recall, answer relevancy), documented known limitations below
+3. **Evaluation and rigor** ✅ — 24-question golden set (target was 20-30), full RAGAS scoring run (faithfulness, context precision/recall, answer relevancy), documented known limitations below
+
+## Evaluation results
+
+Full run against all 24 golden questions (`eval/results.json`):
+
+| Metric | Mean score | Parsed successfully |
+|---|---|---|
+| Retrieval hit rate | **1.00** | 24/24 (no LLM judge needed) |
+| Refusal rate (in-corpus questions) | 0.00 | 24/24 |
+| `context_precision` | 0.989 | 23/24 |
+| `context_recall` | 0.661 | 22/24 |
+| `answer_relevancy` | 0.787 | 15/24 |
+| `faithfulness` | 0.877 | 6/24 |
 
 ## Known limitations
 
 Documented honestly, as the project's own eval plan requires:
 
-- **RAGAS judge is a local 3B model.** This project runs entirely on free, local resources — both generation *and* the RAGAS judge run on `llama3.2:3b` via Ollama, no paid API involved anywhere. `faithfulness` and `context_recall` score reliably. `answer_relevancy` and `context_precision` frequently fail to parse — the small model doesn't reliably produce the strict JSON these metrics require internally, so those scores should be read as directional, not as a strict production benchmark. This is a limitation of the judge, not necessarily of the underlying RAG system.
-- **Faithfulness alone is not the full picture.** Per the eval plan: faithfulness can look strong while retrieval quietly misses information, so it's tracked alongside context precision/recall, not in isolation — which is part of why this project measured all four metrics rather than just faithfulness.
-- **Citation title fidelity.** The local generation model sometimes paraphrases the `incident_title` field in its citation instead of reproducing it verbatim (e.g. "Replit's Outage" instead of the exact stored title), even though the exact string is present in the prompt context. Company name and source URL have been reliably exact in testing. A larger local model would likely reproduce citation fields verbatim more reliably, at the cost of slower CPU inference.
-- **Retrieval, independent of the LLM judge, checked out cleanly**: see `eval/results.json` for the retrieval-hit-rate figure — whether the correct source was actually retrieved for each golden question, measured directly rather than through an LLM judge.
+- **RAGAS judge is a local 3B model.** This project runs entirely on free, local resources — both generation *and* the RAGAS judge run on `llama3.2:3b` via Ollama, no paid API involved anywhere. Parse-failure rates above are real and vary a lot by metric: `context_precision` and `context_recall` parsed cleanly on almost every question (23/24, 22/24), while `faithfulness` failed to parse on 18 of 24 — the model doesn't reliably produce the strict internal JSON these metrics require, especially for the longer statement-extraction step `faithfulness` depends on. Read the means as directional, computed only over the questions that did parse, not as a strict production benchmark.
+- **Faithfulness alone is not the full picture.** Per the eval plan: faithfulness can look strong while retrieval quietly misses information, so it's tracked alongside context precision/recall, not in isolation — which is part of why this project measured all four metrics rather than just faithfulness. In this run, ironically, faithfulness is the metric with the *least* usable signal (lowest parse rate), which is exactly the kind of failure mode that's invisible if you only look at one metric.
+- **Local compute was the real bottleneck, not the model itself.** A full 24-question run degraded badly on the local dev machine under real system memory pressure (other running apps left <1.5GB free of 16GB) — job times went from ~60s to 800+s, projecting 9+ hours. The full run reported here completed in 35 minutes on a free Google Colab T4 GPU instance instead, using the same code (`RAGAS_FULL_EVAL=1 python -m eval.evaluate`). `eval/evaluate.py` defaults to a 9-question representative sample locally for exactly this reason, with the full-set mode available via that env var on better-resourced hardware.
+- **Citation title fidelity.** The local generation model sometimes paraphrases the `incident_title` field in its citation instead of reproducing it verbatim (e.g. "Replit's Outage" instead of the exact stored title), even though the exact string is present in the prompt context. Company name and source URL have been reliably exact in testing. A larger local model would likely reproduce citation fields verbatim more reliably.
 - **Corpus size.** 16 sources at v1 (target range was 15-25); `infra_failure` and `model_drift` are the thinnest categories (2 sources each). This is a living project by design — meant to grow.
 - **`ragas` packaging bug.** The latest `ragas` (0.4.3) unconditionally imports a `langchain_community` submodule that's been removed from current `langchain-community`, breaking `import ragas` entirely on a fresh install. `requirements.txt` pins `ragas==0.3.9` and `langchain-community==0.3.31` to a known-working combination.
 - **No CI/CD gating** — stretch goal, not required for v1 per the project's own scope boundaries.
@@ -80,5 +93,6 @@ ollama pull llama3.2:3b
 ```bash
 python main.py ingest
 python main.py ask "What causes silent RAG degradation in production?"
-python -m eval.evaluate   # runs the golden set + RAGAS scoring
+python -m eval.evaluate                       # 9-question RAGAS sample (safe on constrained hardware)
+RAGAS_FULL_EVAL=1 python -m eval.evaluate      # full 24-question RAGAS run (needs more headroom -- see known limitations)
 ```
