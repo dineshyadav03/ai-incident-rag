@@ -47,6 +47,7 @@ scripts/
   validate_corpus.py       structural consistency checks for sources.json/golden_set.json -- runs in CI
 .github/workflows/ci.yml  runs validate_corpus.py + ingest + check_retrieval.py on every push/PR
 main.py                  CLI entry point
+app.py                   optional Streamlit web UI over the same pipeline
 ```
 
 ## Build phases
@@ -55,6 +56,7 @@ main.py                  CLI entry point
 2. **Production-quality retrieval** ✅ — hybrid BM25 + vector search, cross-encoder reranking, reranker-score-based refusal, versioned prompts
 3. **Evaluation and rigor** ✅ — 28-question golden set (target was 20-30), full RAGAS scoring run (faithfulness, context precision/recall, answer relevancy), documented known limitations below
 4. **CI/CD gating** ✅ — GitHub Actions runs corpus consistency checks and a full retrieval-hit-rate regression check on every push/PR (see Known limitations for why generation-based eval stays out of CI)
+5. **Web UI** ✅ — optional Streamlit front end (`app.py`) over the same pipeline the CLI uses; the original spec scoped v1 as CLI-only to protect build time, so this stays a thin, non-load-bearing layer rather than a rebuild
 
 ## Evaluation results
 
@@ -106,4 +108,5 @@ python -m eval.evaluate                       # 9-question RAGAS sample (safe on
 RAGAS_FULL_EVAL=1 python -m eval.evaluate      # full 28-question RAGAS run (needs more headroom -- see known limitations)
 python scripts/validate_corpus.py              # fast structural consistency check, no models loaded
 python -m eval.check_retrieval                 # retrieval-only regression check, no Ollama needed -- what CI runs
+streamlit run app.py                           # optional web UI, same pipeline as the CLI
 ```
