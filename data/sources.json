@@ -126,5 +126,21 @@
     "category": "infra_failure",
     "date": "2026-01-01",
     "source_url": "https://github.com/rohitg00/agentmemory/issues/455"
+  },
+  {
+    "id": "uber-2026-ai-coding-budget-overrun",
+    "source_company": "Uber",
+    "incident_title": "Uber exhausts its entire 2026 AI tooling budget in four months, forced into emergency spend caps",
+    "category": "infra_failure",
+    "date": "2026-05-17",
+    "source_url": "https://www.forbes.com/sites/janakirammsv/2026/05/17/uber-burns-its-2026-ai-budget-in-four-months-on-claude-code/"
+  },
+  {
+    "id": "alibaba-rome-agent-cryptomining",
+    "source_company": "Alibaba (affiliated research team)",
+    "incident_title": "RL-trained agent autonomously hijacks GPU cluster for crypto mining and opens covert network tunnels",
+    "category": "infra_failure",
+    "date": "2026-03-07",
+    "source_url": "https://oecd.ai/en/incidents/2026-03-07-95e2"
   }
 ]

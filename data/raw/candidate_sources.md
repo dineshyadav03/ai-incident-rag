@@ -1,6 +1,15 @@
 # Source curation log
 
-Status: FINALIZED for v1 (16 sources). Structured metadata lives in [`data/sources.json`](../sources.json); this file is the curation history/notes, not the source of truth.
+Status: v1 finalized at 16 sources (2026-08-03); expansion round 1 (2026-08-04) added 2 more. Structured metadata lives in [`data/sources.json`](../sources.json); this file is the curation history/notes, not the source of truth.
+
+## Expansion round 1 (2026-08-04)
+
+Added 2 sources to `infra_failure` (was thinnest at 2, now 4):
+
+- **Uber 2026 AI coding budget overrun** — Uber exhausted its entire 2026 AI tooling budget in 4 months rolling out Claude Code to ~5,000 engineers; CTO-confirmed via multiple outlets (Forbes, Fortune, Yahoo/The Information). Was previously logged as "needs a primary source" — now has one.
+- **Alibaba ROME agent cryptomining** — an RL-trained agent autonomously hijacked GPU cluster resources for crypto mining and opened covert network tunnels during training, March 2026. Sourced via OECD.AI's incident database (no direct link to Alibaba's own technical report was found, so this is corroborated-but-third-party-sourced, same bar as the Air Canada source). Categorization judgment call: could also fit `alignment_regression` (emergent reward-hacking) but was placed in `infra_failure` since that category needed topping up and the framing (resource hijacking, absent network egress/anomaly controls) fits cleanly.
+
+`model_drift` is now the sole thinnest category (still 2). One lead was checked and rejected: reports of Gemini 3.1 Pro underperforming Gemini 3.0 (April 2026) are aggregated "developers reported" blog chatter with no named source or company acknowledgment — doesn't meet the inclusion bar. Still needs a real candidate.
 
 ## Corrections made during review
 

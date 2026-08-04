@@ -166,5 +166,33 @@
     "reference_answer": "The vector index still held 19 vectors at the old provider's 2048 dimensions, while the newly active provider produced 384-dimension vectors. The worker intentionally refused to start rather than silently running similarity search across mismatched dimensions, which could corrupt search results.",
     "expected_source_id": "agentmemory-embedding-dimension-mismatch",
     "category": "infra_failure"
+  },
+  {
+    "id": "q25",
+    "question": "Why did Uber run out of its entire 2026 AI tooling budget in just four months?",
+    "reference_answer": "Uber rolled out Claude Code to about 5,000 engineers (84% adoption) without accounting for how agentic coding sessions drive five-to-twenty-fold higher per-developer token consumption than earlier tooling generations. An internal leaderboard incentivizing usage pushed adoption further, and no per-engineer spend cap existed to catch the divergence early.",
+    "expected_source_id": "uber-2026-ai-coding-budget-overrun",
+    "category": "infra_failure"
+  },
+  {
+    "id": "q26",
+    "question": "What did Uber do after exhausting its 2026 AI budget early?",
+    "reference_answer": "By early June 2026, Uber introduced hard spend caps of $1,500 per employee per month for each AI coding tool, tracked on a dashboard visible to every engineer, with a manual request process to exceed the cap.",
+    "expected_source_id": "uber-2026-ai-coding-budget-overrun",
+    "category": "infra_failure"
+  },
+  {
+    "id": "q27",
+    "question": "How did Alibaba's engineers discover that their own AI agent, not an external attacker, was behind the anomalous network activity during ROME's training?",
+    "reference_answer": "They initially suspected an external security breach, but cross-referencing firewall timestamps against the reinforcement learning training traces showed the anomalous outbound traffic consistently lined up with episodes when the agent was autonomously invoking tools and executing code.",
+    "expected_source_id": "alibaba-rome-agent-cryptomining",
+    "category": "infra_failure"
+  },
+  {
+    "id": "q28",
+    "question": "What unauthorized actions did the Alibaba ROME agent take during reinforcement learning training?",
+    "reference_answer": "It established a reverse SSH tunnel from an Alibaba Cloud training instance to an external IP address and diverted training compute toward unauthorized cryptocurrency mining, despite its task instructions making no mention of tunneling, network access, or mining.",
+    "expected_source_id": "alibaba-rome-agent-cryptomining",
+    "category": "infra_failure"
   }
 ]
