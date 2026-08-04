@@ -1,5 +1,7 @@
 # AI Production Root-Cause Index
 
+[![CI](https://github.com/dineshyadav03/ai-incident-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/dineshyadav03/ai-incident-rag/actions/workflows/ci.yml)
+
 A citation-grounded RAG system over real, public AI/LLM engineering postmortems.
 
 Ask a question about how AI systems fail in production — silent RAG degradation, agent cost overruns, provider outages, model drift — and get an answer grounded in actual incidents, with citations back to the exact source it came from. The system refuses to answer when the corpus doesn't support a confident response.
@@ -38,8 +40,12 @@ src/
   config/prompts.py      versioned system prompts
 eval/
   golden_set.json        28 manually verified Q&A pairs across all 6 categories
-  evaluate.py             RAGAS evaluation script
+  evaluate.py             full RAGAS evaluation script (needs Ollama, see Usage)
+  check_retrieval.py       fast retrieval-only regression check, no LLM needed -- runs in CI
   results.json            latest evaluation run output
+scripts/
+  validate_corpus.py       structural consistency checks for sources.json/golden_set.json -- runs in CI
+.github/workflows/ci.yml  runs validate_corpus.py + ingest + check_retrieval.py on every push/PR
 main.py                  CLI entry point
 ```
 
@@ -48,6 +54,7 @@ main.py                  CLI entry point
 1. **Core pipeline** ✅ — ingest, chunk, embed, vector-only retrieval, cited generation
 2. **Production-quality retrieval** ✅ — hybrid BM25 + vector search, cross-encoder reranking, reranker-score-based refusal, versioned prompts
 3. **Evaluation and rigor** ✅ — 28-question golden set (target was 20-30), full RAGAS scoring run (faithfulness, context precision/recall, answer relevancy), documented known limitations below
+4. **CI/CD gating** ✅ — GitHub Actions runs corpus consistency checks and a full retrieval-hit-rate regression check on every push/PR (see Known limitations for why generation-based eval stays out of CI)
 
 ## Evaluation results
 
@@ -74,7 +81,7 @@ Documented honestly, as the project's own eval plan requires:
 - **Citation title fidelity.** The local generation model sometimes paraphrases the `incident_title` field in its citation instead of reproducing it verbatim (e.g. "Replit's Outage" instead of the exact stored title), even though the exact string is present in the prompt context. Company name and source URL have been reliably exact in testing. A larger local model would likely reproduce citation fields verbatim more reliably.
 - **Corpus size.** 18 sources as of 2026-08-04 (target range was 15-25). `infra_failure` grew from 2 to 4 sources; `model_drift` is now the sole thinnest category at 2. This is a living project by design — meant to keep growing.
 - **`ragas` packaging bug.** The latest `ragas` (0.4.3) unconditionally imports a `langchain_community` submodule that's been removed from current `langchain-community`, breaking `import ragas` entirely on a fresh install. `requirements.txt` pins `ragas==0.3.9` and `langchain-community==0.3.31` to a known-working combination.
-- **No CI/CD gating** — stretch goal, not required for v1 per the project's own scope boundaries.
+- **CI/CD gating covers retrieval, not generation.** The GitHub Actions workflow validates corpus/golden-set consistency and runs a full retrieval-hit-rate check on every push and PR — but deliberately doesn't run the full RAGAS eval, since that needs a local Ollama judge and can take an hour or more (see above). CI checks the part of the pipeline that's fast, deterministic, and doesn't depend on an external service; the full RAGAS run stays a manual step on Colab.
 
 ## Setup
 
@@ -97,4 +104,6 @@ python main.py ingest
 python main.py ask "What causes silent RAG degradation in production?"
 python -m eval.evaluate                       # 9-question RAGAS sample (safe on constrained hardware)
 RAGAS_FULL_EVAL=1 python -m eval.evaluate      # full 28-question RAGAS run (needs more headroom -- see known limitations)
+python scripts/validate_corpus.py              # fast structural consistency check, no models loaded
+python -m eval.check_retrieval                 # retrieval-only regression check, no Ollama needed -- what CI runs
 ```
