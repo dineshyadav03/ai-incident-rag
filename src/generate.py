@@ -80,21 +80,41 @@ _groq_client = None
 _ollama_client = None
 
 
+GROQ_MAX_RETRIES = int(os.environ.get("GROQ_MAX_RETRIES", "3"))
+
+
 def _generate_groq(user_prompt: str) -> tuple[str, dict]:
     global _groq_client
+    from groq import RateLimitError
+
     if _groq_client is None:
         from groq import Groq
         _groq_client = Groq(api_key=GROQ_API_KEY)
 
-    response = _groq_client.chat.completions.create(
-        model=GROQ_MODEL,
-        messages=[
-            {"role": "system", "content": ACTIVE_SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0,
-        max_tokens=OLLAMA_NUM_PREDICT,
-    )
+    # Free tier caps tokens-per-minute (6000 TPM at time of writing), not
+    # just requests -- a burst of real questions with several KB of
+    # retrieved context each can exceed that well before hitting a request
+    # count limit. Discovered for real in CI (eval/check_generation_quality.py
+    # firing 9 sequential questions), not theoretical. Exponential backoff
+    # rather than failing outright -- the API's own error message reports
+    # the wait is typically under 2 seconds.
+    for attempt in range(GROQ_MAX_RETRIES):
+        try:
+            response = _groq_client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[
+                    {"role": "system", "content": ACTIVE_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0,
+                max_tokens=OLLAMA_NUM_PREDICT,
+            )
+            break
+        except RateLimitError:
+            if attempt == GROQ_MAX_RETRIES - 1:
+                raise
+            time.sleep(2 ** attempt)  # 1s, 2s, 4s, ...
+
     usage = {"input_tokens": response.usage.prompt_tokens, "output_tokens": response.usage.completion_tokens}
     return response.choices[0].message.content, usage
 

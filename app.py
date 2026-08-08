@@ -10,6 +10,21 @@ from src.ingest import load_source_catalog
 
 st.set_page_config(page_title="AI Production Root-Cause Index", page_icon="🔍", layout="centered")
 
+
+@st.cache_resource(show_spinner="Building the search index (one-time setup, ~10-20s)...")
+def _ensure_index_built() -> None:
+    # A fresh deployment (e.g. Streamlit Community Cloud) gets a clean clone
+    # of this repo -- chroma_db/ is gitignored (derived data, not source), so
+    # the index doesn't exist until something builds it. st.cache_resource
+    # makes this run exactly once per server process, not once per visitor.
+    from src.embed import build_index, get_collection
+
+    if get_collection().count() == 0:
+        build_index()
+
+
+_ensure_index_built()
+
 if "question" not in st.session_state:
     st.session_state.question = ""
 
