@@ -33,7 +33,7 @@ with st.sidebar:
     st.caption("Generation runs entirely on a local Ollama model. No API key, no data leaves this machine.")
 
 EXAMPLE_QUESTIONS = [
-    "What causes silent RAG degradation in production?",
+    "Why was Anthropic's silent Claude quality degradation in 2025 hard to detect?",
     "Why did Uber run out of its 2026 AI budget so fast?",
     "What did the Replit AI agent do after deleting a production database?",
 ]

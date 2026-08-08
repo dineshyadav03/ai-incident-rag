@@ -93,7 +93,7 @@ def hybrid_search(query: str) -> list[dict]:
 if __name__ == "__main__":
     import sys
 
-    query = " ".join(sys.argv[1:]) or "what causes silent RAG degradation"
+    query = " ".join(sys.argv[1:]) or "why was Anthropic's silent Claude quality degradation hard to detect"
     results = hybrid_search(query)
     print(f"Query: {query}\nCandidates: {len(results)}\n")
     for r in results:

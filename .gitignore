@@ -5,6 +5,7 @@ __pycache__/
 venv/
 .env
 chroma_db/
+logs/
 *.egg-info/
 .pytest_cache/
 .DS_Store

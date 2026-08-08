@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     from src.retrieve import hybrid_search
 
-    query = " ".join(sys.argv[1:]) or "what causes silent RAG degradation"
+    query = " ".join(sys.argv[1:]) or "why was Anthropic's silent Claude quality degradation hard to detect"
     candidates = hybrid_search(query)
     top = rerank(query, candidates)
 

@@ -8,7 +8,7 @@ Ask a question about how AI systems fail in production — silent RAG degradatio
 
 ## Status
 
-All three phases complete and verified end-to-end, including a full 28-question RAGAS evaluation run.
+Core pipeline, retrieval, evaluation, CI/CD, web UI, and query observability are all complete and verified end-to-end, including a full 28-question RAGAS evaluation run.
 
 ## Why this exists
 
@@ -22,7 +22,11 @@ Query:     question -> embed -> vector search + BM25 -> merge -> cross-encoder r
            -> refuse if below relevance threshold -> else build cited prompt -> LLM -> answer + citations
 ```
 
-Generation runs entirely on a local Ollama model (`llama3.2:3b`) — free, no API key, no external calls.
+Generation uses Groq's free-tier hosted API (fast regardless of local machine load) when `GROQ_API_KEY` is set, falling back to a local Ollama model (`llama3.2:3b`) otherwise — either way, zero monetary cost.
+
+### Refusal in action
+
+The refusal gate isn't theoretical — it's easy to trigger for real. Asking a thematically-plausible but too-broad question like *"What causes silent RAG degradation in production?"* refuses, because no single source directly addresses that composite phrasing closely enough (best cross-encoder match: -2.96, well below the 0.0 confidence threshold) — even though a *related*, more specifically-anchored question (*"Why was Anthropic's silent Claude quality degradation in 2025 hard to detect?"*) answers confidently from the same corpus. This is the citation-enforcement design working as intended: refuse rather than force a citation onto a source that doesn't actually support the claim. It was caught by the observability logging below, not by manual testing — a direct example of why that logging exists.
 
 ## Repository structure
 
@@ -36,7 +40,8 @@ src/
   embed.py               create + populate ChromaDB collection
   retrieve.py           hybrid vector + BM25 search
   rerank.py              cross-encoder reranking + citation-enforcement confidence check
-  generate.py            prompt construction + local Ollama LLM call
+  generate.py            prompt construction + generation (Groq free-tier API or local Ollama fallback)
+  observability.py       per-query JSON event log -- see Observability section
   config/prompts.py      versioned system prompts
 eval/
   golden_set.json        28 manually verified Q&A pairs across all 6 categories
@@ -45,6 +50,8 @@ eval/
   results.json            latest evaluation run output
 scripts/
   validate_corpus.py       structural consistency checks for sources.json/golden_set.json -- runs in CI
+  observability_report.py  summarizes logs/query_log.jsonl -- outcome rates, latency percentiles
+logs/                    query_log.jsonl -- gitignored, runtime data, not source
 .github/workflows/ci.yml  runs validate_corpus.py + ingest + check_retrieval.py on every push/PR
 main.py                  CLI entry point
 app.py                   optional Streamlit web UI over the same pipeline
@@ -57,6 +64,7 @@ app.py                   optional Streamlit web UI over the same pipeline
 3. **Evaluation and rigor** ✅ — 28-question golden set (target was 20-30), full RAGAS scoring run (faithfulness, context precision/recall, answer relevancy), documented known limitations below
 4. **CI/CD gating** ✅ — GitHub Actions runs corpus consistency checks and a full retrieval-hit-rate regression check on every push/PR (see Known limitations for why generation-based eval stays out of CI)
 5. **Web UI** ✅ — optional Streamlit front end (`app.py`) over the same pipeline the CLI uses; the original spec scoped v1 as CLI-only to protect build time, so this stays a thin, non-load-bearing layer rather than a rebuild
+6. **Observability** ✅ — every query is logged with per-stage latency and outcome (`src/observability.py`), with a report script (`scripts/observability_report.py`) for outcome rates and latency percentiles. Motivated directly by a source in this project's own corpus: Anthropic's postmortem, where a system degraded silently for weeks because every request still "succeeded" and nothing was measuring quality, not just error rate
 
 ## Evaluation results
 
@@ -73,11 +81,27 @@ Full run against all 28 golden questions, after the 2026-08-04 corpus expansion 
 
 This is directly comparable to the original 24-question run (`context_precision` 0.989, `context_recall` 0.661, `answer_relevancy` 0.787, `faithfulness` 0.877) — all four metrics stayed within a few points after adding 2 more sources and 4 more questions, and retrieval hit rate held at a perfect 1.00. The `faithfulness` parse rate improved slightly (10/28 = 36% vs. the original 6/24 = 25%), though it's still the weakest-parsing metric.
 
+## Observability
+
+RAGAS scoring answers "is the corpus and pipeline good?" as a one-time (or periodic) offline check. It doesn't answer "is this specific request, right now, behaving normally?" — for that, every call to `answer_question()` (used by both the CLI and the web UI, so this covers both automatically) logs one JSON line to `logs/query_log.jsonl`:
+
+```json
+{"timestamp": 1786160431.63, "question": "...", "outcome": "answered", "backend": "ollama",
+ "retrieval_ms": 42.1, "rerank_ms": 118.7, "generation_ms": 2140.5, "total_ms": 2301.3,
+ "retrieved_source_ids": ["uber-2026-ai-coding-budget-overrun::chunk0", ...]}
+```
+
+`outcome` is one of `answered`, `refused`, or `error` (errors are logged *and* re-raised — logging never swallows a real failure). Run `python scripts/observability_report.py` for a summary: outcome breakdown, generation backend usage, and p50/p95/max latency per stage.
+
+**Why this exists, specifically:** this project's own corpus contains the counter-example. Anthropic's three-issues postmortem (a `model_drift` source here) describes weeks of silent quality degradation where *every request still returned a syntactically valid response* — there was no error-rate signal, only a quality signal nobody was capturing. Retrieval-hit-rate and refusal-rate in the eval table above are exactly that kind of signal for this project, and this log is what makes them checkable on live traffic instead of only on a fixed golden set. It already caught one real thing during development — see "Refusal in action" above, found by reading the log rather than by manually re-testing every example question.
+
+This is deliberately a local JSONL file, not a metrics service — consistent with this project's zero-budget constraint, and sufficient at demo scale. A real production deployment would ship these events to an actual observability backend rather than a local file.
+
 ## Known limitations
 
 Documented honestly, as the project's own eval plan requires:
 
-- **RAGAS judge is a local 3B model.** This project runs entirely on free, local resources — both generation *and* the RAGAS judge run on `llama3.2:3b` via Ollama, no paid API involved anywhere. Parse-failure rates above are real and vary a lot by metric: `context_precision` and `context_recall` parsed cleanly on almost every question (27/28, 26/28), while `faithfulness` failed to parse on 18 of 28 — the model doesn't reliably produce the strict internal JSON these metrics require, especially for the longer statement-extraction step `faithfulness` depends on. Read the means as directional, computed only over the questions that did parse, not as a strict production benchmark.
+- **RAGAS judge is a local 3B model.** The RAGAS judge always runs on `llama3.2:3b` via Ollama (generation can optionally run via Groq's free-tier API instead, see Setup — but the judge does not, so these eval numbers are unaffected by that choice). No paid API involved anywhere either way. Parse-failure rates above are real and vary a lot by metric: `context_precision` and `context_recall` parsed cleanly on almost every question (27/28, 26/28), while `faithfulness` failed to parse on 18 of 28 — the model doesn't reliably produce the strict internal JSON these metrics require, especially for the longer statement-extraction step `faithfulness` depends on. Read the means as directional, computed only over the questions that did parse, not as a strict production benchmark.
 - **Faithfulness alone is not the full picture.** Per the eval plan: faithfulness can look strong while retrieval quietly misses information, so it's tracked alongside context precision/recall, not in isolation — which is part of why this project measured all four metrics rather than just faithfulness. In this run, ironically, faithfulness is the metric with the *least* usable signal (lowest parse rate), which is exactly the kind of failure mode that's invisible if you only look at one metric.
 - **Local compute was the real bottleneck, not the model itself.** A full run degraded badly on the local dev machine under real system memory pressure (other running apps left <1.5GB free of 16GB) — job times went from ~60s to 800+s, projecting 9+ hours. Running the same code (`RAGAS_FULL_EVAL=1 python -m eval.evaluate`) on a free Google Colab T4 GPU instance instead completed the original 24-question set in 35 minutes and the current 28-question set in about 81 minutes — Colab's free-tier GPU allocation and network conditions vary run to run, so wall-clock time isn't perfectly stable even on the same code and similar question count. `eval/evaluate.py` defaults to a 9-question representative sample locally for exactly this reason, with the full-set mode available via that env var on better-resourced hardware.
 - **Citation title fidelity.** The local generation model sometimes paraphrases the `incident_title` field in its citation instead of reproducing it verbatim (e.g. "Replit's Outage" instead of the exact stored title), even though the exact string is present in the prompt context. Company name and source URL have been reliably exact in testing. A larger local model would likely reproduce citation fields verbatim more reliably.
@@ -92,21 +116,24 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Generation runs on a local Ollama model — no API key needed:
+Generation works with no setup beyond the above, using a local Ollama model:
 
 ```bash
 # install Ollama (https://ollama.com), then:
 ollama pull llama3.2:3b
 ```
 
+Optionally, for faster generation regardless of local machine load, get a free API key at [console.groq.com/keys](https://console.groq.com/keys) and set `GROQ_API_KEY` in `.env` — no other change needed, `src/generate.py` picks it up automatically.
+
 ## Usage
 
 ```bash
 python main.py ingest
-python main.py ask "What causes silent RAG degradation in production?"
+python main.py ask "Why was Anthropic's silent Claude quality degradation in 2025 hard to detect?"
 python -m eval.evaluate                       # 9-question RAGAS sample (safe on constrained hardware)
 RAGAS_FULL_EVAL=1 python -m eval.evaluate      # full 28-question RAGAS run (needs more headroom -- see known limitations)
 python scripts/validate_corpus.py              # fast structural consistency check, no models loaded
 python -m eval.check_retrieval                 # retrieval-only regression check, no Ollama needed -- what CI runs
 streamlit run app.py                           # optional web UI, same pipeline as the CLI
+python scripts/observability_report.py         # summarize logs/query_log.jsonl -- outcomes, backend usage, latency
 ```
