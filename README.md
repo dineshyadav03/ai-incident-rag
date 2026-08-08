@@ -54,8 +54,9 @@ scripts/
   validate_corpus.py       structural consistency checks for sources.json/golden_set.json -- runs in CI
   check_corpus_injection.py  scans the corpus with src/guardrails.py's patterns -- runs in CI
   observability_report.py  summarizes logs/query_log.jsonl -- outcome rates, latency percentiles, injection flags
+tests/                   unit tests for pure logic (chunking, guardrails, cost math) -- runs in CI
 logs/                    query_log.jsonl -- gitignored, runtime data, not source
-.github/workflows/ci.yml  runs validate_corpus.py + check_corpus_injection.py + ingest + check_retrieval.py + check_generation_quality.py on every push/PR
+.github/workflows/ci.yml  runs validate_corpus.py + check_corpus_injection.py + pytest + ingest + check_retrieval.py + check_generation_quality.py on every push/PR
 main.py                  CLI entry point
 app.py                   optional Streamlit web UI over the same pipeline
 ```
@@ -71,6 +72,7 @@ app.py                   optional Streamlit web UI over the same pipeline
 7. **Generation-quality CI gate** ✅ — a fast, deterministic-ish check (`eval/check_generation_quality.py`) exercises the real pipeline (retrieval + rerank + Groq generation) on a 9-question sample and asserts answers stay non-refused and correctly cited. Opt-in via a `GROQ_API_KEY` GitHub Actions secret — skips cleanly (exit 0) when the secret isn't configured, so it never breaks CI for forks or before the secret is set up. Complements, doesn't replace, the full RAGAS eval: no LLM-judge scoring, just mechanical checks on real generated output, cheap enough for every PR
 8. **Prompt-injection guardrails** ✅ — `src/guardrails.py` scans every retrieved chunk for injection-like patterns before it reaches the prompt, flags (doesn't block) via the observability log, and the system prompt explicitly instructs the model to treat excerpt text as inert quoted data, never as instructions. `scripts/check_corpus_injection.py` runs the same scan over the whole corpus in CI. See Guardrails below
 9. **Cost and token tracking** ✅ — every logged query now includes real input/output token counts from the generation backend's own API response, plus an estimated cost against Groq's published list pricing (`$0` for Ollama, genuinely — self-hosted compute isn't a billed API). Extends the Observability logging above rather than a separate system
+10. **Unit tests** ✅ — `tests/` covers the pure logic that doesn't need a model loaded: chunking edge cases, the reranker's confidence-threshold boundary, injection-pattern true/false positives, and cost-estimation math. Runs in CI on every push, separate from the eval/CI checks above which exercise the full pipeline end-to-end
 
 ## Evaluation results
 
@@ -153,8 +155,13 @@ python -m eval.evaluate                       # 9-question RAGAS sample (safe on
 RAGAS_FULL_EVAL=1 python -m eval.evaluate      # full 28-question RAGAS run (needs more headroom -- see known limitations)
 python scripts/validate_corpus.py              # fast structural consistency check, no models loaded
 python scripts/check_corpus_injection.py        # scan corpus for prompt-injection-like patterns, no models loaded
+python -m pytest tests/                        # unit tests for pure logic (chunking, guardrails, cost math) -- what CI runs
 python -m eval.check_retrieval                 # retrieval-only regression check, no Ollama needed -- what CI runs
 python -m eval.check_generation_quality        # mechanical generation-quality check via Groq -- needs GROQ_API_KEY, what CI runs (opt-in)
 streamlit run app.py                           # optional web UI, same pipeline as the CLI
 python scripts/observability_report.py         # summarize logs/query_log.jsonl -- outcomes, backend usage, latency
 ```
+
+## License
+
+[MIT](LICENSE)

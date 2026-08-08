@@ -35,6 +35,9 @@ jobs:
       - name: Scan corpus for prompt-injection-like patterns
         run: python scripts/check_corpus_injection.py
 
+      - name: Unit tests (pure logic, no models loaded)
+        run: python -m pytest tests/ -v
+
       - name: Build the vector index
         run: python main.py ingest
 
