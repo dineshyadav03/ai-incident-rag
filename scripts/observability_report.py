@@ -72,6 +72,16 @@ def main() -> int:
     print(f"  {_latency_line('rerank', rerank_ms)}")
     print(f"  {_latency_line('generation', generation_ms)}")
 
+    input_tokens = [e["input_tokens"] for e in events if e.get("input_tokens") is not None]
+    output_tokens = [e["output_tokens"] for e in events if e.get("output_tokens") is not None]
+    costs = [e["estimated_cost_usd"] for e in events if e.get("estimated_cost_usd") is not None]
+    if input_tokens or output_tokens:
+        print("\nTokens and cost (estimated at list price -- see src/generate.py's pricing table; $0 for Ollama, a real self-hosted cost, not a billed API):")
+        print(f"  input tokens:  total={sum(input_tokens):,}  avg/query={sum(input_tokens) / len(input_tokens):.0f}  (n={len(input_tokens)})")
+        print(f"  output tokens: total={sum(output_tokens):,}  avg/query={sum(output_tokens) / len(output_tokens):.0f}  (n={len(output_tokens)})")
+        if costs:
+            print(f"  estimated cost: total=${sum(costs):.6f}  avg/query=${sum(costs) / len(costs):.6f}  (n={len(costs)})")
+
     errors = [e for e in events if e["outcome"] == "error"]
     if errors:
         print(f"\n{len(errors)} error(s), most recent first:")

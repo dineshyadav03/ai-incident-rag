@@ -44,11 +44,24 @@ OLLAMA_NUM_PREDICT = int(os.environ.get("OLLAMA_NUM_PREDICT", "400"))
 
 REFUSAL_MESSAGE = "I don't have enough grounded information in the corpus to answer this confidently."
 
+# Published list pricing, $ per million tokens (source: Groq's pricing page,
+# cross-checked 2026-08-08 -- verify at console.groq.com/pricing before
+# relying on this for real budgeting, list prices change). We're on Groq's
+# free tier so nothing is actually billed, but tracking what usage *would*
+# cost at list price is the real production skill -- it's what lets you
+# catch a cost blowup (see this project's own Uber source) before it
+# happens, not just explain it after. Local Ollama generation has no
+# per-token cost at all -- self-hosted compute on hardware you already
+# have, not a billed API -- logged as exactly $0.0, not "unknown."
+GROQ_PRICING_PER_MILLION_TOKENS = {
+    "llama-3.1-8b-instant": {"input": 0.05, "output": 0.08},
+}
+
 _groq_client = None
 _ollama_client = None
 
 
-def _generate_groq(user_prompt: str) -> str:
+def _generate_groq(user_prompt: str) -> tuple[str, dict]:
     global _groq_client
     if _groq_client is None:
         from groq import Groq
@@ -63,10 +76,11 @@ def _generate_groq(user_prompt: str) -> str:
         temperature=0,
         max_tokens=OLLAMA_NUM_PREDICT,
     )
-    return response.choices[0].message.content
+    usage = {"input_tokens": response.usage.prompt_tokens, "output_tokens": response.usage.completion_tokens}
+    return response.choices[0].message.content, usage
 
 
-def _generate_ollama(user_prompt: str) -> str:
+def _generate_ollama(user_prompt: str) -> tuple[str, dict]:
     global _ollama_client
     if _ollama_client is None:
         import ollama
@@ -80,13 +94,23 @@ def _generate_ollama(user_prompt: str) -> str:
         ],
         options={"num_ctx": OLLAMA_NUM_CTX, "num_predict": OLLAMA_NUM_PREDICT},
     )
-    return response["message"]["content"]
+    usage = {"input_tokens": response["prompt_eval_count"], "output_tokens": response["eval_count"]}
+    return response["message"]["content"], usage
 
 
-def _generate(user_prompt: str) -> str:
+def _generate(user_prompt: str) -> tuple[str, dict]:
     if GROQ_API_KEY:
         return _generate_groq(user_prompt)
     return _generate_ollama(user_prompt)
+
+
+def _estimate_cost_usd(backend: str, model: str, usage: dict) -> float | None:
+    if backend == "ollama":
+        return 0.0  # self-hosted compute, genuinely not a billed API
+    rates = GROQ_PRICING_PER_MILLION_TOKENS.get(model)
+    if not rates:
+        return None  # unpriced model -- don't guess
+    return (usage["input_tokens"] * rates["input"] + usage["output_tokens"] * rates["output"]) / 1_000_000
 
 
 def answer_question(question: str, top_k: int = 5) -> dict:
@@ -125,9 +149,10 @@ def answer_question(question: str, top_k: int = 5) -> dict:
 
     user_prompt = build_user_prompt(question, chunks)
     backend = "groq" if GROQ_API_KEY else "ollama"
+    model = GROQ_MODEL if backend == "groq" else OLLAMA_MODEL
     t3 = time.perf_counter()
     try:
-        answer_text = _generate(user_prompt)
+        answer_text, usage = _generate(user_prompt)
     except Exception as e:
         log_event({
             "question": question,
@@ -153,6 +178,9 @@ def answer_question(question: str, top_k: int = 5) -> dict:
         "total_ms": round((time.perf_counter() - t0) * 1000, 1),
         "retrieved_source_ids": retrieved_source_ids,
         "injection_flags": injection_flags,
+        "input_tokens": usage["input_tokens"],
+        "output_tokens": usage["output_tokens"],
+        "estimated_cost_usd": _estimate_cost_usd(backend, model, usage),
     })
 
     return {"answer": answer_text, "chunks": chunks, "refused": False}
