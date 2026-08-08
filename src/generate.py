@@ -21,6 +21,7 @@ import time
 from dotenv import load_dotenv
 
 from src.config.prompts import ACTIVE_SYSTEM_PROMPT, build_user_prompt
+from src.guardrails import scan_chunks
 from src.observability import log_event
 from src.rerank import is_confident, rerank
 from src.retrieve import hybrid_search
@@ -102,6 +103,11 @@ def answer_question(question: str, top_k: int = 5) -> dict:
     retrieval_ms = round((t1 - t0) * 1000, 1)
     rerank_ms = round((t2 - t1) * 1000, 1)
     retrieved_source_ids = [c["id"] for c in chunks]
+    injection_flags = scan_chunks(chunks)
+    if injection_flags:
+        # Flag, don't block -- see src/guardrails.py for why. Visible in the
+        # observability log either way, refused or answered.
+        print(f"[guardrails] possible prompt injection in retrieved content: {injection_flags}")
 
     if not is_confident(chunks):
         log_event({
@@ -113,6 +119,7 @@ def answer_question(question: str, top_k: int = 5) -> dict:
             "generation_ms": None,
             "total_ms": round((time.perf_counter() - t0) * 1000, 1),
             "retrieved_source_ids": retrieved_source_ids,
+            "injection_flags": injection_flags,
         })
         return {"answer": REFUSAL_MESSAGE, "chunks": chunks, "refused": True}
 
@@ -131,6 +138,7 @@ def answer_question(question: str, top_k: int = 5) -> dict:
             "generation_ms": round((time.perf_counter() - t3) * 1000, 1),
             "total_ms": round((time.perf_counter() - t0) * 1000, 1),
             "retrieved_source_ids": retrieved_source_ids,
+            "injection_flags": injection_flags,
             "error": str(e),
         })
         raise
@@ -144,6 +152,7 @@ def answer_question(question: str, top_k: int = 5) -> dict:
         "generation_ms": round((time.perf_counter() - t3) * 1000, 1),
         "total_ms": round((time.perf_counter() - t0) * 1000, 1),
         "retrieved_source_ids": retrieved_source_ids,
+        "injection_flags": injection_flags,
     })
 
     return {"answer": answer_text, "chunks": chunks, "refused": False}

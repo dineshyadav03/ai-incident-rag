@@ -78,6 +78,12 @@ def main() -> int:
         for e in reversed(errors[-5:]):
             print(f"  - {e['question'][:70]!r}: {e.get('error', 'unknown error')}")
 
+    flagged = [e for e in events if e.get("injection_flags")]
+    if flagged:
+        print(f"\n{len(flagged)} quer(y/ies) with possible prompt injection in retrieved content (see src/guardrails.py):")
+        for e in flagged[-5:]:
+            print(f"  - {e['question'][:70]!r}: {e['injection_flags']}")
+
     return 0
 
 

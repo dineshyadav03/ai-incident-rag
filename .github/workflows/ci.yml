@@ -32,6 +32,9 @@ jobs:
       - name: Validate corpus and golden set consistency
         run: python scripts/validate_corpus.py
 
+      - name: Scan corpus for prompt-injection-like patterns
+        run: python scripts/check_corpus_injection.py
+
       - name: Build the vector index
         run: python main.py ingest
 
