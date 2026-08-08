@@ -36,3 +36,8 @@ jobs:
 
       - name: Retrieval-only regression check over the golden set
         run: python -m eval.check_retrieval
+
+      - name: Generation-quality check on a sample (Groq, opt-in via secret)
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python -m eval.check_generation_quality

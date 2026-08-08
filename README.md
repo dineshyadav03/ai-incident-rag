@@ -47,12 +47,13 @@ eval/
   golden_set.json        28 manually verified Q&A pairs across all 6 categories
   evaluate.py             full RAGAS evaluation script (needs Ollama, see Usage)
   check_retrieval.py       fast retrieval-only regression check, no LLM needed -- runs in CI
+  check_generation_quality.py  fast generation-quality check via Groq, opt-in via CI secret -- runs in CI
   results.json            latest evaluation run output
 scripts/
   validate_corpus.py       structural consistency checks for sources.json/golden_set.json -- runs in CI
   observability_report.py  summarizes logs/query_log.jsonl -- outcome rates, latency percentiles
 logs/                    query_log.jsonl -- gitignored, runtime data, not source
-.github/workflows/ci.yml  runs validate_corpus.py + ingest + check_retrieval.py on every push/PR
+.github/workflows/ci.yml  runs validate_corpus.py + ingest + check_retrieval.py + check_generation_quality.py on every push/PR
 main.py                  CLI entry point
 app.py                   optional Streamlit web UI over the same pipeline
 ```
@@ -62,9 +63,10 @@ app.py                   optional Streamlit web UI over the same pipeline
 1. **Core pipeline** ✅ — ingest, chunk, embed, vector-only retrieval, cited generation
 2. **Production-quality retrieval** ✅ — hybrid BM25 + vector search, cross-encoder reranking, reranker-score-based refusal, versioned prompts
 3. **Evaluation and rigor** ✅ — 28-question golden set (target was 20-30), full RAGAS scoring run (faithfulness, context precision/recall, answer relevancy), documented known limitations below
-4. **CI/CD gating** ✅ — GitHub Actions runs corpus consistency checks and a full retrieval-hit-rate regression check on every push/PR (see Known limitations for why generation-based eval stays out of CI)
+4. **CI/CD gating** ✅ — GitHub Actions runs corpus consistency checks and a full retrieval-hit-rate regression check on every push/PR (see Known limitations for why the full RAGAS eval stays out of CI)
 5. **Web UI** ✅ — optional Streamlit front end (`app.py`) over the same pipeline the CLI uses; the original spec scoped v1 as CLI-only to protect build time, so this stays a thin, non-load-bearing layer rather than a rebuild
 6. **Observability** ✅ — every query is logged with per-stage latency and outcome (`src/observability.py`), with a report script (`scripts/observability_report.py`) for outcome rates and latency percentiles. Motivated directly by a source in this project's own corpus: Anthropic's postmortem, where a system degraded silently for weeks because every request still "succeeded" and nothing was measuring quality, not just error rate
+7. **Generation-quality CI gate** ✅ — a fast, deterministic-ish check (`eval/check_generation_quality.py`) exercises the real pipeline (retrieval + rerank + Groq generation) on a 9-question sample and asserts answers stay non-refused and correctly cited. Opt-in via a `GROQ_API_KEY` GitHub Actions secret — skips cleanly (exit 0) when the secret isn't configured, so it never breaks CI for forks or before the secret is set up. Complements, doesn't replace, the full RAGAS eval: no LLM-judge scoring, just mechanical checks on real generated output, cheap enough for every PR
 
 ## Evaluation results
 
@@ -107,7 +109,7 @@ Documented honestly, as the project's own eval plan requires:
 - **Citation title fidelity.** The local generation model sometimes paraphrases the `incident_title` field in its citation instead of reproducing it verbatim (e.g. "Replit's Outage" instead of the exact stored title), even though the exact string is present in the prompt context. Company name and source URL have been reliably exact in testing. A larger local model would likely reproduce citation fields verbatim more reliably.
 - **Corpus size.** 18 sources as of 2026-08-04 (target range was 15-25). `infra_failure` grew from 2 to 4 sources; `model_drift` is now the sole thinnest category at 2. This is a living project by design — meant to keep growing.
 - **`ragas` packaging bug.** The latest `ragas` (0.4.3) unconditionally imports a `langchain_community` submodule that's been removed from current `langchain-community`, breaking `import ragas` entirely on a fresh install. `requirements.txt` pins `ragas==0.3.9` and `langchain-community==0.3.31` to a known-working combination.
-- **CI/CD gating covers retrieval, not generation.** The GitHub Actions workflow validates corpus/golden-set consistency and runs a full retrieval-hit-rate check on every push and PR — but deliberately doesn't run the full RAGAS eval, since that needs a local Ollama judge and can take an hour or more (see above). CI checks the part of the pipeline that's fast, deterministic, and doesn't depend on an external service; the full RAGAS run stays a manual step on Colab.
+- **CI/CD gating still doesn't run the full RAGAS eval.** The GitHub Actions workflow validates corpus/golden-set consistency, runs a full retrieval-hit-rate check, and (once the `GROQ_API_KEY` secret is configured) a mechanical generation-quality check on a 9-question sample — but deliberately doesn't run full RAGAS scoring, since that needs a local Ollama judge and can take an hour or more (see above). The CI generation check catches "did it start refusing / miscite" class regressions cheaply; it doesn't score faithfulness or relevancy the way RAGAS does. The full RAGAS run stays a manual step on Colab. As of this writing, the `GROQ_API_KEY` GitHub Actions secret has not yet been configured on the repo, so the generation-quality CI step is currently skipping (see its own log output) — it's designed to activate with no other changes once the secret is added.
 
 ## Setup
 
@@ -134,6 +136,7 @@ python -m eval.evaluate                       # 9-question RAGAS sample (safe on
 RAGAS_FULL_EVAL=1 python -m eval.evaluate      # full 28-question RAGAS run (needs more headroom -- see known limitations)
 python scripts/validate_corpus.py              # fast structural consistency check, no models loaded
 python -m eval.check_retrieval                 # retrieval-only regression check, no Ollama needed -- what CI runs
+python -m eval.check_generation_quality        # mechanical generation-quality check via Groq -- needs GROQ_API_KEY, what CI runs (opt-in)
 streamlit run app.py                           # optional web UI, same pipeline as the CLI
 python scripts/observability_report.py         # summarize logs/query_log.jsonl -- outcomes, backend usage, latency
 ```
