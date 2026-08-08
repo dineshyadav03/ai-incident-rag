@@ -5,7 +5,7 @@ stretch goal so the project is explorable without a terminal.
 
 import streamlit as st
 
-from src.generate import answer_question
+from src.generate import GROQ_API_KEY, GROQ_MODEL, OLLAMA_MODEL, answer_question
 from src.ingest import load_source_catalog
 
 st.set_page_config(page_title="AI Production Root-Cause Index", page_icon="🔍", layout="centered")
@@ -30,7 +30,10 @@ with st.sidebar:
     for category, count in sorted(counts.items()):
         st.write(f"**{category}**: {count}")
     st.divider()
-    st.caption("Generation runs entirely on a local Ollama model. No API key, no data leaves this machine.")
+    if GROQ_API_KEY:
+        st.caption(f"Generation via Groq's free-tier hosted API (`{GROQ_MODEL}`). Fast regardless of local machine load.")
+    else:
+        st.caption(f"Generation via a local Ollama model (`{OLLAMA_MODEL}`). No API key, no data leaves this machine.")
 
 EXAMPLE_QUESTIONS = [
     "Why was Anthropic's silent Claude quality degradation in 2025 hard to detect?",
@@ -47,14 +50,16 @@ for col, example in zip(cols, EXAMPLE_QUESTIONS):
 question = st.text_input("Your question", key="question")
 
 if st.button("Ask", type="primary") and question.strip():
-    with st.spinner("Retrieving and generating (local model, can take 10-30s)..."):
+    spinner_text = "Retrieving and generating..." if GROQ_API_KEY else "Retrieving and generating (local model, can take 10-30s)..."
+    with st.spinner(spinner_text):
         result = answer_question(question)
 
     if result["refused"]:
         st.warning(result["answer"])
     else:
         st.markdown(result["answer"])
-        st.subheader("Sources")
+        if result["chunks"]:
+            st.subheader("Sources")
         for c in result["chunks"]:
             meta = c["metadata"]
             st.markdown(

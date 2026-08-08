@@ -16,6 +16,7 @@ project's zero-budget constraint):
 """
 
 import os
+import re
 import time
 
 from dotenv import load_dotenv
@@ -43,6 +44,24 @@ OLLAMA_NUM_CTX = int(os.environ.get("OLLAMA_NUM_CTX", "6144"))
 OLLAMA_NUM_PREDICT = int(os.environ.get("OLLAMA_NUM_PREDICT", "400"))
 
 REFUSAL_MESSAGE = "I don't have enough grounded information in the corpus to answer this confidently."
+
+# Small talk ("hi", "thanks") has no corpus match, so it fell through to the
+# same REFUSAL_MESSAGE as a genuine out-of-scope question -- correct by the
+# citation-enforcement logic (nothing to ground it in), but confusing UX: a
+# greeting and a real refused question read identically to a first-time
+# user. Handled before retrieval runs at all, so it's instant and doesn't
+# cost a generation call. Logged as its own "chitchat" outcome (not
+# "refused") so it doesn't distort the refusal-rate metric used in eval.
+_CHITCHAT_PATTERN = re.compile(
+    r"^\s*(hi|hello|hey|yo|howdy|good\s?(morning|afternoon|evening)|how'?s?\s+it\s+going|"
+    r"how\s+are\s+you|what'?s\s+up|sup|thanks?|thank\s+you|thx|ty|bye|goodbye|see\s+ya)[\s!.,?]*$",
+    re.IGNORECASE,
+)
+CHITCHAT_RESPONSE = (
+    "Hi! I'm a research assistant over a curated corpus of real AI/LLM production incidents. "
+    "Try asking something like \"Why did Uber run out of its 2026 AI budget so fast?\" or pick one "
+    "of the example questions above."
+)
 
 # Published list pricing, $ per million tokens (source: Groq's pricing page,
 # cross-checked 2026-08-08 -- verify at console.groq.com/pricing before
@@ -119,6 +138,21 @@ def answer_question(question: str, top_k: int = 5) -> dict:
     reranked match isn't relevant enough to trust. Every call is logged
     (see src/observability.py) with per-stage latency and outcome."""
     t0 = time.perf_counter()
+
+    if _CHITCHAT_PATTERN.match(question):
+        log_event({
+            "question": question,
+            "outcome": "chitchat",
+            "backend": None,
+            "retrieval_ms": None,
+            "rerank_ms": None,
+            "generation_ms": None,
+            "total_ms": round((time.perf_counter() - t0) * 1000, 1),
+            "retrieved_source_ids": [],
+            "injection_flags": {},
+        })
+        return {"answer": CHITCHAT_RESPONSE, "chunks": [], "refused": False}
+
     candidates = hybrid_search(question)
     t1 = time.perf_counter()
     chunks = rerank(question, candidates, top_k=top_k)

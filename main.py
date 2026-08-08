@@ -18,7 +18,7 @@ def cmd_ask(args):
     print(f"\nQ: {question}\n")
     print(result["answer"])
 
-    if not result["refused"]:
+    if not result["refused"] and result["chunks"]:
         print("\nSources:")
         for c in result["chunks"]:
             meta = c["metadata"]
